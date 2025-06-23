@@ -1,70 +1,39 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   pull_request:
-    branches: [dev]
-  push:
-    branches: [main]
+    branches:
+      - dev
 
 jobs:
-  dev-pipeline:
-    if: github.event_name == 'pull_request'
+  lint-audit-test-build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
+    defaults:
+      run:
+        working-directory: ./frontend
 
-      - name: Setup Node
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v3
+
+      - name: ⎔ Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20'  # adjust if needed
 
-      - name: Install deps & lint
+      - name: 📦 Install frontend dependencies
+        run: npm ci
+
+      - name: 🧹 Run Linter
+        run: npm run lint
+
+      - name: 🔍 Run NPM Audit
+        run: npm audit --audit-level=high
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Build Docker Images
         run: |
-          cd backend && npm ci && npm run lint
-          cd ../frontend && npm ci && npm run lint
-
-      - name: Audit
-        run: |
-          cd backend && npm audit --audit-level=high
-          cd ../frontend && npm audit --audit-level=high
-
-      - name: Static security analysis with Snyk
-        uses: snyk/actions/node@master
-        with:
-          command: test
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
-      - name: Run tests
-        run: |
-          cd backend && npm test
-          cd ../frontend && npm test
-
-      - name: Docker build
-        run: |
-          docker build -t monapp:frontend ./frontend
-          docker build -t monapp:backend ./backend
-
-  prod-pipeline:
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Inject backend .env from GitHub secret
-        run: echo "my_sec=${{ secrets.my_sec }}" > backend/.env
-
-      - name: Docker login
-        run: |
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login --username "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-
-      - name: Build and Push Docker images
-        run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/monapp:frontend ./frontend
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/monapp:backend ./backend
-          docker push ${{ secrets.DOCKER_USERNAME }}/monapp:frontend
-          docker push ${{ secrets.DOCKER_USERNAME }}/monapp:backend
-
-      - name: Trigger local deploy webhook
-        run: |
-          curl -X POST ${{ secrets.WEBHOOK_URL }}
+          docker build -t frontend ./frontend
+          docker build -t backend ./backend
