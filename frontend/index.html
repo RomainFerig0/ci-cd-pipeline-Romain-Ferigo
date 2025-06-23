@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Frontend</title>
+</head>
+<body>
+  <h1>Hello from the frontend!</h1>
+  <p>Test API backend : <span id="response">Loading...</span></p>
+
+  <script>
+    fetch('http://localhost:4000/api')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('response').textContent = data.message;
+      })
+      .catch(err => {
+        document.getElementById('response').textContent = 'Backend not reachable';
+      });
+  </script>
+</body>
+</html>

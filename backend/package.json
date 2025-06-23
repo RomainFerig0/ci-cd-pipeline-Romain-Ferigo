@@ -1,0 +1,13 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "lint": "echo 'No linter configured'",
+    "test": "echo 'No test configured'"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
