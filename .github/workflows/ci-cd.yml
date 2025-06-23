@@ -1,12 +1,20 @@
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
   pull_request:
     branches:
       - dev
+  push:
+    branches:
+      - main
 
 jobs:
-  lint-audit-test-build:
+
+  # ============================
+  # 🔹 Dev Branch CI Job
+  # ============================
+  dev-ci:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -19,21 +27,61 @@ jobs:
       - name: ⎔ Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'  # adjust if needed
+          node-version: '20'
 
       - name: 📦 Install frontend dependencies
         run: npm ci
 
-      - name: 🧹 Run Linter
+      - name: 🧹 Run Lint
         run: npm run lint
 
-      - name: 🔍 Run NPM Audit
+      - name: 🔍 NPM Audit
         run: npm audit --audit-level=high
 
-      - name: Run Tests
+      - name: 🛡️ Snyk Security Scan
+        uses: snyk/actions/node@master
+        with:
+          command: test
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: ✅ Run Tests
         run: npm test
 
-      - name: Build Docker Images
+      - name: 🐳 Build Docker Images (test)
         run: |
-          docker build -t frontend ./frontend
-          docker build -t backend ./backend
+          docker build -t myapp-frontend ./frontend
+          docker build -t myapp-backend ./backend
+
+  # ============================
+  # 🟩 Main Branch Release Job
+  # ============================
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🔐 Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: 🧪 Create .env and build frontend image
+        run: |
+          echo "API_KEY=${{ secrets.FRONTEND_API_KEY }}" > ./frontend/.env
+          docker build -t yourdockerhubuser/yourrepo:frontend ./frontend
+
+      - name: 🧪 Create .env and build backend image
+        run: |
+          echo "DB_PASSWORD=${{ secrets.BACKEND_DB_PASSWORD }}" > ./backend/.env
+          docker build -t yourdockerhubuser/yourrepo:backend ./backend
+
+      - name: 🚀 Push frontend
+        run: docker push yourdockerhubuser/yourrepo:frontend
+
+      - name: 🚀 Push backend
+        run: docker push yourdockerhubuser/yourrepo:backend
